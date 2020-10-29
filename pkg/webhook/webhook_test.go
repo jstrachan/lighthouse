@@ -37,7 +37,7 @@ func (suite *WebhookTestSuite) TestProcessWebhookPRComment() {
 		Repo:   suite.TestRepo,
 	}
 	l := logrus.WithField("test", t.Name())
-	logrusEntry, message, err := suite.WebhookOptions.ProcessWebHook(l, webhook)
+	logrusEntry, message, err := suite.WebhookOptions.ProcessWebHook(l, webhook, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "processed PR comment hook", message)
 	assert.NotNil(t, logrusEntry)
@@ -51,7 +51,7 @@ func (suite *WebhookTestSuite) TestProcessWebhookPR() {
 		Repo:   suite.TestRepo,
 	}
 	l := logrus.WithField("test", t.Name())
-	logrusEntry, message, err := suite.WebhookOptions.ProcessWebHook(l, webhook)
+	logrusEntry, message, err := suite.WebhookOptions.ProcessWebHook(l, webhook, nil)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "processed PR hook", message)
@@ -73,7 +73,7 @@ func (suite *WebhookTestSuite) TestProcessWebhookPRReview() {
 		},
 	}
 	l := logrus.WithField("test", t.Name())
-	logrusEntry, message, err := suite.WebhookOptions.ProcessWebHook(l, webhook)
+	logrusEntry, message, err := suite.WebhookOptions.ProcessWebHook(l, webhook, nil)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "processed PR review hook", message)
@@ -106,7 +106,7 @@ func (suite *WebhookTestSuite) TestProcessWebhookUnknownRepo() {
 		Repo:   unknownRepo,
 	}
 
-	logrusEntry, message, err := suite.WebhookOptions.ProcessWebHook(l, webhook)
+	logrusEntry, message, err := suite.WebhookOptions.ProcessWebHook(l, webhook, nil)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "processed PR hook", message)
@@ -114,7 +114,7 @@ func (suite *WebhookTestSuite) TestProcessWebhookUnknownRepo() {
 
 	// Now try again in GitHub App mode and expect an error.
 	os.Setenv(util.GitHubAppSecretDirEnvVar, "/some/dir")
-	_, _, err = suite.WebhookOptions.ProcessWebHook(l, webhook)
+	_, _, err = suite.WebhookOptions.ProcessWebHook(l, webhook, nil)
 
 	assert.EqualError(t, err, fmt.Sprintf("repository not configured: %s", unknownRepo.Link))
 }

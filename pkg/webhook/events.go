@@ -50,7 +50,7 @@ func (s *Server) getPlugins(org, repo string) map[string]plugins.Plugin {
 }
 
 // handleIssueCommentEvent handle comment events
-func (s *Server) handleIssueCommentEvent(l *logrus.Entry, ic scm.IssueCommentHook) {
+func (s *Server) handleIssueCommentEvent(l *logrus.Entry, ic scm.IssueCommentHook, rawWebhookPayload []byte) {
 	l = l.WithFields(logrus.Fields{
 		scmprovider.OrgLogField:  ic.Repo.Namespace,
 		scmprovider.RepoLogField: ic.Repo.Name,
@@ -86,11 +86,12 @@ func (s *Server) handleIssueCommentEvent(l *logrus.Entry, ic scm.IssueCommentHoo
 	s.handleGenericComment(
 		l,
 		event,
+		rawWebhookPayload,
 	)
 }
 
 // handlePullRequestCommentEvent handles pull request comments events
-func (s *Server) handlePullRequestCommentEvent(l *logrus.Entry, pc scm.PullRequestCommentHook) {
+func (s *Server) handlePullRequestCommentEvent(l *logrus.Entry, pc scm.PullRequestCommentHook, rawWebhookPayload []byte) {
 	l = l.WithFields(logrus.Fields{
 		scmprovider.OrgLogField:  pc.Repo.Namespace,
 		scmprovider.RepoLogField: pc.Repo.Name,
@@ -118,10 +119,11 @@ func (s *Server) handlePullRequestCommentEvent(l *logrus.Entry, pc scm.PullReque
 			IssueLink:   pc.PullRequest.Link,
 			HeadSha:     pc.PullRequest.Head.Sha,
 		},
+		rawWebhookPayload,
 	)
 }
 
-func (s *Server) handleGenericComment(l *logrus.Entry, ce *scmprovider.GenericCommentEvent) {
+func (s *Server) handleGenericComment(l *logrus.Entry, ce *scmprovider.GenericCommentEvent, rawWebhookPayload []byte) {
 	for p, h := range s.getPlugins(ce.Repo.Namespace, ce.Repo.Name) {
 		if h.GenericCommentHandler != nil {
 			s.wg.Add(1)
@@ -132,6 +134,7 @@ func (s *Server) handleGenericComment(l *logrus.Entry, ce *scmprovider.GenericCo
 					agent.Logger.WithError(err).Error("Error creating agent for GenericCommentEvent.")
 					return
 				}
+				agent.RawWebhookPayload = rawWebhookPayload
 				if err := h(agent, *ce); err != nil {
 					agent.Logger.WithError(err).Error("Error handling GenericCommentEvent.")
 				}
@@ -147,6 +150,7 @@ func (s *Server) handleGenericComment(l *logrus.Entry, ce *scmprovider.GenericCo
 						agent.Logger.WithError(err).Error("Error creating agent for GenericCommentEvent.")
 						return
 					}
+					agent.RawWebhookPayload = rawWebhookPayload
 					agent.InitializeCommentPruner(
 						ce.Repo.Namespace,
 						ce.Repo.Name,
@@ -166,7 +170,7 @@ func (s *Server) handleGenericComment(l *logrus.Entry, ce *scmprovider.GenericCo
 }
 
 // handlePushEvent handles a push event
-func (s *Server) handlePushEvent(l *logrus.Entry, pe *scm.PushHook) {
+func (s *Server) handlePushEvent(l *logrus.Entry, pe *scm.PushHook, rawWebhookPayload []byte) {
 	repo := pe.Repository()
 	l = l.WithFields(logrus.Fields{
 		scmprovider.OrgLogField:  repo.Namespace,
@@ -187,6 +191,7 @@ func (s *Server) handlePushEvent(l *logrus.Entry, pe *scm.PushHook) {
 					agent.Logger.WithError(err).Error("Error creating agent for PushEvent.")
 					return
 				}
+				agent.RawWebhookPayload = rawWebhookPayload
 				if err := h(agent, *pe); err != nil {
 					agent.Logger.WithError(err).Error("Error handling PushEvent.")
 				}
@@ -196,7 +201,7 @@ func (s *Server) handlePushEvent(l *logrus.Entry, pe *scm.PushHook) {
 	l.WithField("count", strconv.Itoa(c)).Info("number of push handlers")
 }
 
-func (s *Server) handlePullRequestEvent(l *logrus.Entry, pr *scm.PullRequestHook) {
+func (s *Server) handlePullRequestEvent(l *logrus.Entry, pr *scm.PullRequestHook, rawWebhookPayload []byte) {
 	l = l.WithFields(logrus.Fields{
 		scmprovider.OrgLogField:  pr.Repo.Namespace,
 		scmprovider.RepoLogField: pr.Repo.Name,
@@ -222,6 +227,7 @@ func (s *Server) handlePullRequestEvent(l *logrus.Entry, pr *scm.PullRequestHook
 					agent.Logger.WithError(err).Error("Error creating agent for PullRequestEvent.")
 					return
 				}
+				agent.RawWebhookPayload = rawWebhookPayload
 				agent.InitializeCommentPruner(
 					pr.Repo.Namespace,
 					pr.Repo.Name,
@@ -256,16 +262,17 @@ func (s *Server) handlePullRequestEvent(l *logrus.Entry, pr *scm.PullRequestHook
 			IssueLink:   pr.PullRequest.Link,
 			HeadSha:     pr.PullRequest.Head.Sha,
 		},
+		rawWebhookPayload,
 	)
 }
 
 // handleBranchEvent handles a branch event
-func (s *Server) handleBranchEvent(entry *logrus.Entry, hook *scm.BranchHook) {
+func (s *Server) handleBranchEvent(entry *logrus.Entry, hook *scm.BranchHook, rawWebhookPayload []byte) {
 	// TODO
 }
 
 // handleReviewEvent handles a PR review event
-func (s *Server) handleReviewEvent(l *logrus.Entry, re scm.ReviewHook) {
+func (s *Server) handleReviewEvent(l *logrus.Entry, re scm.ReviewHook, rawWebhookPayload []byte) {
 	l = l.WithFields(logrus.Fields{
 		scmprovider.OrgLogField:  re.Repo.Namespace,
 		scmprovider.RepoLogField: re.Repo.Name,
@@ -286,6 +293,7 @@ func (s *Server) handleReviewEvent(l *logrus.Entry, re scm.ReviewHook) {
 					agent.Logger.WithError(err).Error("Error creating agent for ReviewEvent.")
 					return
 				}
+				agent.RawWebhookPayload = rawWebhookPayload
 				agent.InitializeCommentPruner(
 					re.Repo.Namespace,
 					re.Repo.Name,
@@ -320,6 +328,7 @@ func (s *Server) handleReviewEvent(l *logrus.Entry, re scm.ReviewHook) {
 			IssueLink:   re.PullRequest.Link,
 			HeadSha:     re.PullRequest.Head.Sha,
 		},
+		rawWebhookPayload,
 	)
 }
 

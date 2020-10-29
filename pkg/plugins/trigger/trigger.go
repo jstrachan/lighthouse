@@ -130,6 +130,45 @@ type Client struct {
 	LauncherClient    launcher
 	Config            *config.Config
 	Logger            *logrus.Entry
+	RawWebhookPayload []byte
+}
+
+func (c *Client) configureJob(pj *v1alpha1.LighthouseJob) {
+	if len(c.RawWebhookPayload) == 0 {
+		return
+	}
+	const rawGitWebHookPayloadParameterName = "gitWebHookPayload"
+
+	hasPayloadParam := false
+	prs := pj.Spec.PipelineRunSpec
+	if prs != nil {
+		ps := prs.PipelineSpec
+		if ps != nil {
+			for i := range ps.Params {
+				param := &ps.Params[i]
+				if param.Name == rawGitWebHookPayloadParameterName {
+					hasPayloadParam = true
+					break
+				}
+			}
+		}
+	}
+
+	for i := range pj.Spec.PipelineRunParams {
+		p := pj.Spec.PipelineRunParams[i]
+		if p.Name == rawGitWebHookPayloadParameterName {
+			textPayload := string(c.RawWebhookPayload)
+			p.ValueTemplate = textPayload
+			return
+		}
+	}
+	if hasPayloadParam {
+		textPayload := string(c.RawWebhookPayload)
+		pj.Spec.PipelineRunParams = append(pj.Spec.PipelineRunParams, job.PipelineRunParam{
+			Name:          rawGitWebHookPayloadParameterName,
+			ValueTemplate: textPayload,
+		})
+	}
 }
 
 type trustedUserClient interface {
@@ -144,6 +183,7 @@ func getClient(pc plugins.Agent) Client {
 		Config:            pc.Config,
 		LauncherClient:    pc.LauncherClient,
 		Logger:            pc.Logger,
+		RawWebhookPayload: pc.RawWebhookPayload,
 	}
 }
 
@@ -264,6 +304,7 @@ func runRequested(c Client, pr *scm.PullRequest, requestedJobs []job.Presubmit, 
 	for _, job := range requestedJobs {
 		c.Logger.Infof("Starting %s build.", job.Name)
 		pj := jobutil.NewPresubmit(pr, baseSHA, job, eventGUID, c.SCMProviderClient.PRRefFmt())
+		c.configureJob(&pj)
 		c.Logger.WithFields(jobutil.LighthouseJobFields(&pj)).Info("Creating a new LighthouseJob.")
 		if _, err := c.LauncherClient.Launch(&pj); err != nil {
 			c.Logger.WithError(err).Error("Failed to create LighthouseJob.")

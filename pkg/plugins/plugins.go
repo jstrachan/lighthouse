@@ -110,6 +110,11 @@ type Agent struct {
 
 	// may be nil if not initialized
 	Commentpruner *commentpruner.EventClient
+
+	// RawWebhookPayload allows a plugin to access the raw webhook payload
+	// for use with integration with GitHub Action images which need access to the underlying
+	// GitHub webhook payload JSON
+	RawWebhookPayload    []byte
 }
 
 // NewAgent bootstraps a new Agent struct from the passed dependencies.

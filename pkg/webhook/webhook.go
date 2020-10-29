@@ -199,7 +199,7 @@ func (o *WebhooksController) HandleWebhookRequests(w http.ResponseWriter, r *htt
 		LighthouseClient:  lhClient.LighthouseV1alpha1().LighthouseJobs(o.namespace),
 		LauncherClient:    o.launcher,
 	}
-	l, output, err := o.ProcessWebHook(logrus.WithField("Webhook", webhook.Kind()), webhook)
+	l, output, err := o.ProcessWebHook(logrus.WithField("Webhook", webhook.Kind()), webhook, bodyBytes)
 	if err != nil {
 		responseHTTPError(w, http.StatusInternalServerError, fmt.Sprintf("500 Internal Server Error: %s", err.Error()))
 	}
@@ -215,7 +215,7 @@ func (o *WebhooksController) HandleWebhookRequests(w http.ResponseWriter, r *htt
 }
 
 // ProcessWebHook process a webhook
-func (o *WebhooksController) ProcessWebHook(l *logrus.Entry, webhook scm.Webhook) (*logrus.Entry, string, error) {
+func (o *WebhooksController) ProcessWebHook(l *logrus.Entry, webhook scm.Webhook, rawWebhookPayload []byte) (*logrus.Entry, string, error) {
 	repository := webhook.Repository()
 	fields := map[string]interface{}{
 		"Namespace": repository.Namespace,
@@ -255,7 +255,7 @@ func (o *WebhooksController) ProcessWebHook(l *logrus.Entry, webhook scm.Webhook
 
 		l.Info("invoking Push handler")
 
-		o.server.handlePushEvent(l, pushHook)
+		o.server.handlePushEvent(l, pushHook, rawWebhookPayload)
 		return l, "processed push hook", nil
 	}
 	prHook, ok := webhook.(*scm.PullRequestHook)
@@ -271,7 +271,7 @@ func (o *WebhooksController) ProcessWebHook(l *logrus.Entry, webhook scm.Webhook
 
 		l.Info("invoking PR handler")
 
-		o.server.handlePullRequestEvent(l, prHook)
+		o.server.handlePullRequestEvent(l, prHook, rawWebhookPayload)
 		return l, "processed PR hook", nil
 	}
 	branchHook, ok := webhook.(*scm.BranchHook)
@@ -285,7 +285,7 @@ func (o *WebhooksController) ProcessWebHook(l *logrus.Entry, webhook scm.Webhook
 
 		l.Info("invoking branch handler")
 
-		o.server.handleBranchEvent(l, branchHook)
+		o.server.handleBranchEvent(l, branchHook, rawWebhookPayload)
 		return l, "processed branch hook", nil
 	}
 	issueCommentHook, ok := webhook.(*scm.IssueCommentHook)
@@ -305,7 +305,7 @@ func (o *WebhooksController) ProcessWebHook(l *logrus.Entry, webhook scm.Webhook
 
 		l.Info("invoking Issue Comment handler")
 
-		o.server.handleIssueCommentEvent(l, *issueCommentHook)
+		o.server.handleIssueCommentEvent(l, *issueCommentHook, rawWebhookPayload)
 		return l, "processed issue comment hook", nil
 	}
 	prCommentHook, ok := webhook.(*scm.PullRequestCommentHook)
@@ -329,7 +329,7 @@ func (o *WebhooksController) ProcessWebHook(l *logrus.Entry, webhook scm.Webhook
 
 		l.Info("invoking Issue Comment handler")
 
-		o.server.handlePullRequestCommentEvent(l, *prCommentHook)
+		o.server.handlePullRequestCommentEvent(l, *prCommentHook, rawWebhookPayload)
 		return l, "processed PR comment hook", nil
 	}
 	prReviewHook, ok := webhook.(*scm.ReviewHook)
@@ -349,7 +349,7 @@ func (o *WebhooksController) ProcessWebHook(l *logrus.Entry, webhook scm.Webhook
 
 		l.Info("invoking PR Review handler")
 
-		o.server.handleReviewEvent(l, *prReviewHook)
+		o.server.handleReviewEvent(l, *prReviewHook, rawWebhookPayload)
 		return l, "processed PR review hook", nil
 	}
 	l.Debugf("unknown kind %s webhook %#v", webhook.Kind(), webhook)

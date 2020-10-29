@@ -77,6 +77,7 @@ func handlePE(c Client, pe scm.PushHook) error {
 		}
 		labels[scmprovider.EventGUID] = pe.GUID
 		pj := jobutil.NewLighthouseJob(jobutil.PostsubmitSpec(j, refs), labels, j.Annotations)
+		c.configureJob(&pj)
 		c.Logger.WithFields(jobutil.LighthouseJobFields(&pj)).Info("Creating a new LighthouseJob.")
 		if _, err := c.LauncherClient.Launch(&pj); err != nil {
 			return err
